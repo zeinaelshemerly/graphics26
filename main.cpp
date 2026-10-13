@@ -60,6 +60,19 @@ int main() {
     glfwSetCursorPosCallback(window, cursor_position_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
+    glfwSetKeyCallback(window, [](GLFWwindow* w, int key, int scancode, int action, int mods) {
+        if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+            glfwSetWindowShouldClose(w, GLFW_TRUE);
+        }
+    });
+
+    // Enable V-Sync to cap to 60 FPS
+    glfwSwapInterval(1);
+
+    // Make window prominent and focused
+    glfwShowWindow(window);
+    glfwFocusWindow(window);
+
     // Enable Alpha Blending for smooth highlights, shadows and glows
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -70,6 +83,15 @@ int main() {
     Playfield playfield;
     playfield.Init();
     g_Playfield = &playfield;
+
+    std::cout << "========================================\n";
+    std::cout << " DMET 502 - Kitchen Defense (Playfield) \n";
+    std::cout << "========================================\n";
+    std::cout << "[INFO] Window opened (1280x720)\n";
+    std::cout << "[INFO] Move mouse over rows to highlight lanes\n";
+    std::cout << "[INFO] Click left mouse button to select lanes\n";
+    std::cout << "[INFO] Press ESC to exit\n";
+    std::cout << "========================================\n" << std::flush;
 
     double lastTime = glfwGetTime();
 
