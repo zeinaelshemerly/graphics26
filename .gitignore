@@ -1,0 +1,10 @@
+# Local CMake / IDE build outputs
+build/
+cmake-build-*/
+.vs/
+.vscode/
+*.obj
+*.o
+*.exe
+*.pdb
+.DS_Store
