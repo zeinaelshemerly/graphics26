@@ -12,6 +12,8 @@ find_package(OpenGL REQUIRED)
 
 add_executable(OpenGLStarter
     main.cpp
+    Renderer2D.cpp
+    Playfield.cpp
 )
 
 target_include_directories(OpenGLStarter PRIVATE external/glad/include)

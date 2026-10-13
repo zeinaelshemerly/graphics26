@@ -1,52 +1,47 @@
 #define GLAD_GL_IMPLEMENTATION
 #include <glad/gl.h>
+#undef GLAD_GL_IMPLEMENTATION
 #include <GLFW/glfw3.h>
 #include <iostream>
 
-const char* vertexShaderSrc = R"(
-#version 330 core
-layout (location = 0) in vec3 aPos;
-void main() {
-    gl_Position = vec4(aPos, 1.0);
+#include "Renderer2D.h"
+#include "Playfield.h"
+
+static Playfield* g_Playfield = nullptr;
+
+static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
 }
-)";
 
-const char* fragmentShaderSrc = R"(
-#version 330 core
-out vec4 FragColor;
-void main() {
-    FragColor = vec4(1.0, 0.5, 0.2, 1.0);
-}
-)";
-
-GLuint compileShader(GLenum type, const char* src) {
-    GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &src, nullptr);
-    glCompileShader(shader);
-
-    int success;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        char log[512];
-        glGetShaderInfoLog(shader, 512, nullptr, log);
-        std::cerr << "Shader compile error:\n" << log << "\n";
+static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (!g_Playfield) return;
+    int winW, winH;
+    glfwGetWindowSize(window, &winW, &winH);
+    if (winW > 0 && winH > 0) {
+        float virtualX = (float)xpos * (1280.0f / (float)winW);
+        float virtualY = (float)ypos * (720.0f / (float)winH);
+        g_Playfield->UpdateMouse(virtualX, virtualY);
     }
-    return shader;
+}
+
+static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+    if (!g_Playfield) return;
+    g_Playfield->OnMouseClick(button, action);
 }
 
 int main() {
     if (!glfwInit()) {
-        std::cerr << "Failed to init GLFW\n";
+        std::cerr << "Failed to initialize GLFW\n";
         return -1;
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Triangle", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1280, 720, "DMET 502 - Kitchen Defense (2D Playfield)", nullptr, nullptr);
     if (!window) {
-        std::cerr << "Failed to create window\n";
+        std::cerr << "Failed to create GLFW window\n";
         glfwTerminate();
         return -1;
     }
@@ -54,71 +49,56 @@ int main() {
 
     int version = gladLoadGL(glfwGetProcAddress);
     if (version == 0) {
-        printf("Failed to initialize OpenGL context\n");
+        std::cerr << "Failed to initialize OpenGL context with GLAD\n";
+        glfwDestroyWindow(window);
+        glfwTerminate();
         return -1;
     }
 
-    glViewport(0, 0, 800, 600);
+    glViewport(0, 0, 1280, 720);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetCursorPosCallback(window, cursor_position_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
 
-    // --- Shader program ---
-    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSrc);
-    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSrc);
+    // Enable Alpha Blending for smooth highlights, shadows and glows
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    GLuint shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
+    Renderer2D renderer;
+    renderer.Init();
 
-    int success;
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if (!success) {
-        char log[512];
-        glGetProgramInfoLog(shaderProgram, 512, nullptr, log);
-        std::cerr << "Shader link error:\n" << log << "\n";
-    }
+    Playfield playfield;
+    playfield.Init();
+    g_Playfield = &playfield;
 
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    double lastTime = glfwGetTime();
 
-    // --- Triangle data ---
-    float vertices[] = {
-        -0.5f, -0.5f, 0.0f,
-         0.5f, -0.5f, 0.0f,
-         0.0f,  0.5f, 0.0f
-    };
-
-    GLuint VAO, VBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    // --- Render loop ---
+    // Main Game Loop
     while (!glfwWindowShouldClose(window)) {
-        glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+        double currentTime = glfwGetTime();
+        float deltaTime = (float)(currentTime - lastTime);
+        lastTime = currentTime;
+
+        // Update playfield animations and logic
+        playfield.Update(deltaTime);
+
+        // Clear screen
+        glClearColor(0.12f, 0.12f, 0.14f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glUseProgram(shaderProgram);
-        glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        // Render 2D Kitchen Playfield & Environment
+        renderer.Begin(1280, 720);
+        playfield.Render(renderer);
+        renderer.End();
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteProgram(shaderProgram);
+    g_Playfield = nullptr;
+    renderer.Cleanup();
 
+    glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
 }
