@@ -14,6 +14,7 @@ add_executable(OpenGLStarter
     main.cpp
     Renderer2D.cpp
     Playfield.cpp
+    GameWorld.cpp
 )
 
 target_include_directories(OpenGLStarter PRIVATE external/glad/include)

@@ -39,7 +39,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "DMET 502 - Kitchen Defense (2D Playfield)", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1280, 720, "DMET 502 - Kitchen Defense | Person 2: Game World & Progression", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create GLFW window\n";
         glfwTerminate();
@@ -61,9 +61,11 @@ int main() {
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     glfwSetKeyCallback(window, [](GLFWwindow* w, int key, int scancode, int action, int mods) {
-        if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
             glfwSetWindowShouldClose(w, GLFW_TRUE);
-        }
+        // R = Restart game world (Person 2)
+        if (g_Playfield)
+            g_Playfield->OnKey(key, action);
     });
 
     // Enable V-Sync to cap to 60 FPS
@@ -84,14 +86,16 @@ int main() {
     playfield.Init();
     g_Playfield = &playfield;
 
-    std::cout << "========================================\n";
-    std::cout << " DMET 502 - Kitchen Defense (Playfield) \n";
-    std::cout << "========================================\n";
+    std::cout << "================================================\n";
+    std::cout << " DMET 502 — Kitchen Defense                   \n";
+    std::cout << " Person 2: Game World & Progression           \n";
+    std::cout << "================================================\n";
     std::cout << "[INFO] Window opened (1280x720)\n";
-    std::cout << "[INFO] Move mouse over rows to highlight lanes\n";
-    std::cout << "[INFO] Click left mouse button to select lanes\n";
-    std::cout << "[INFO] Press ESC to exit\n";
-    std::cout << "========================================\n" << std::flush;
+    std::cout << "[INFO] Select a card in the top bar\n";
+    std::cout << "[INFO] Click a lane to deploy a character\n";
+    std::cout << "[INFO] Click dropped coins to collect them\n";
+    std::cout << "[INFO] Press R to restart | ESC to exit\n";
+    std::cout << "================================================\n" << std::flush;
 
     double lastTime = glfwGetTime();
 
