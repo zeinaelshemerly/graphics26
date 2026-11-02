@@ -5,7 +5,7 @@
 // ============================================================================
 
 #include "Renderer2D.h"
-#include "GameWorld.h"
+#include "GameLogic.h"
 #include <vector>
 
 class Playfield {
@@ -34,7 +34,7 @@ public:
     float GetGridEndX()         const { return m_GridStartX + m_GridWidth; }
     float GetCellWidth()        const { return m_CellWidth; }
 
-    GameWorld& GetGameWorld() { return m_GameWorld; }
+    GameLogic& GetGameLogic() { return m_GameLogic; }
 
 private:
     // --- Person 2: Draw the grid, lanes, home base, background ---
@@ -66,5 +66,5 @@ private:
     float m_AnimTimer = 0.0f;
 
     // Person 2 game-world engine
-    GameWorld m_GameWorld;
+    GameLogic m_GameLogic;
 };
