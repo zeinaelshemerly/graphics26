@@ -357,42 +357,38 @@ void GameLogic::UpdateProjectiles(float deltaTime) {
     for (auto& proj : m_Projectiles) {
         if (!proj.active) continue;
 
-        proj.x += proj.vx * deltaTime;
-
-        // Boundary checks
-        if (proj.x < m_GridStartX || proj.x > (m_GridStartX + m_GridWidth)) {
-            proj.active = false;
-            continue;
-        }
+        // Check the entire distance travelled this frame, not only the endpoint.
+        float oldX = proj.x;
+        float newX = oldX + proj.vx * deltaTime;
 
         if (proj.isFromPlayer) {
-            // Check collision with enemies on the same lane
+            // A shot travelling right must hit the closest enemy in its path.
+            EnemyCharacter* target = nullptr;
             for (auto& e : m_Enemies) {
-                if (e.active && e.lane == proj.lane && std::abs(proj.x - e.x) < 25.0f) {
-                    e.health -= proj.damage;
-                    e.damageFlashTimer = 0.25f;
-                    proj.active = false;
-                    m_Score += 20;
-
-                    if (e.health <= 0) {
-                        e.active = false;
-                        DropCollectible(e.x, e.y, e.lane);
-                        m_Score += 100;
-                        m_TotalDefeatedEnemies++;
-                    }
-                    break;
+                if (!e.active || e.lane != proj.lane) continue;
+                if (e.x + 25.0f < oldX || e.x - 25.0f > newX) continue;
+                if (target == nullptr || e.x < target->x) target = &e;
+            }
+            if (target != nullptr) {
+                target->health -= proj.damage;
+                target->damageFlashTimer = 0.25f;
+                proj.active = false;
+                m_Score += 20;
+                if (target->health <= 0) {
+                    target->active = false;
+                    DropCollectible(target->x, target->y, target->lane);
+                    m_Score += 100;
+                    m_TotalDefeatedEnemies++;
                 }
             }
         } else {
-            // Enemy projectiles travel left: encounter the rightmost player first.
-            // This lets a stationary defense player intercept shots aimed at players behind it.
+            // Shots travelling left meet the rightmost character first.
             PlayerCharacter* target = nullptr;
             for (auto& p : m_Players) {
                 if (!p.active || p.lane != proj.lane) continue;
-                if (std::abs(proj.x - p.x) >= 25.0f) continue;
+                if (p.x - 25.0f > oldX || p.x + 25.0f < newX) continue;
                 if (target == nullptr || p.x > target->x) target = &p;
             }
-
             if (target != nullptr) {
                 bool dodged = (proj.heightType == ATTACK_HIGH && target->isDucking) ||
                               (proj.heightType == ATTACK_LOW && target->isJumping);
@@ -404,11 +400,16 @@ void GameLogic::UpdateProjectiles(float deltaTime) {
                 }
             }
         }
+
+        proj.x = newX;
+        if (proj.x < m_GridStartX || proj.x > m_GridStartX + m_GridWidth) {
+            proj.active = false;
+        }
     }
 
-    // Cleanup inactive projectiles
     m_Projectiles.erase(
-        std::remove_if(m_Projectiles.begin(), m_Projectiles.end(), [](const Projectile& pr) { return !pr.active; }),
+        std::remove_if(m_Projectiles.begin(), m_Projectiles.end(),
+                       [](const Projectile& pr) { return !pr.active; }),
         m_Projectiles.end()
     );
 }
@@ -444,6 +445,7 @@ void GameLogic::CheckCollisionsAndCombat(float deltaTime) {
         bool blockedByEnemy = false;
 
         for (auto& e : m_Enemies) {
+            if (!p.active) break;
             if (!e.active || e.lane != p.lane) continue;
 
             float dist = e.x - p.x;
@@ -482,7 +484,7 @@ void GameLogic::CheckCollisionsAndCombat(float deltaTime) {
         }
 
         // If not blocked by enemy, advance automatically toward the right
-        if (!blockedByEnemy && p.type != PLAYER_DEFENSE) {
+        if (p.active && !blockedByEnemy && p.type != PLAYER_DEFENSE) {
             p.x = std::min(p.x + p.speed * deltaTime,
                            m_GridStartX + m_GridWidth - 30.0f);
             p.isAttacking = false;
