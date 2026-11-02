@@ -384,27 +384,23 @@ void GameLogic::UpdateProjectiles(float deltaTime) {
                 }
             }
         } else {
-            // Projectile is from enemy, flying left toward players
+            // Enemy projectiles travel left: encounter the rightmost player first.
+            // This lets a stationary defense player intercept shots aimed at players behind it.
+            PlayerCharacter* target = nullptr;
             for (auto& p : m_Players) {
-                if (p.active && p.lane == proj.lane && std::abs(proj.x - p.x) < 25.0f) {
-                    // Check if player avoided attack via jumping or ducking (Section 3.2)
-                    bool dodged = false;
-                    if (proj.heightType == ATTACK_HIGH && p.isDucking) {
-                        dodged = true; // Duck avoided high attack
-                    } else if (proj.heightType == ATTACK_LOW && p.isJumping) {
-                        dodged = true; // Jump avoided low attack
-                    }
+                if (!p.active || p.lane != proj.lane) continue;
+                if (std::abs(proj.x - p.x) >= 25.0f) continue;
+                if (target == nullptr || p.x > target->x) target = &p;
+            }
 
-                    if (!dodged) {
-                        p.health -= proj.damage;
-                        p.damageFlashTimer = 0.25f;
-                        proj.active = false;
-
-                        if (p.health <= 0) {
-                            p.active = false;
-                        }
-                        break;
-                    }
+            if (target != nullptr) {
+                bool dodged = (proj.heightType == ATTACK_HIGH && target->isDucking) ||
+                              (proj.heightType == ATTACK_LOW && target->isJumping);
+                if (!dodged) {
+                    target->health -= proj.damage;
+                    target->damageFlashTimer = 0.25f;
+                    proj.active = false;
+                    if (target->health <= 0) target->active = false;
                 }
             }
         }
@@ -458,7 +454,7 @@ void GameLogic::CheckCollisionsAndCombat(float deltaTime) {
                 e.isAttacking = true;
 
                 // Player attacks enemy
-                if (p.attackCooldown <= 0.0f && p.type != PLAYER_DEFENSE) {
+                if (p.attackCooldown <= 0.0f && p.type == PLAYER_MELEE) {
                     e.health -= 1; // 1 point of damage per player attack
                     e.damageFlashTimer = 0.25f;
                     p.attackCooldown = 1.0f;
@@ -472,8 +468,8 @@ void GameLogic::CheckCollisionsAndCombat(float deltaTime) {
                     }
                 }
 
-                // Enemy attacks player
-                if (e.attackCooldown <= 0.0f) {
+                // An enemy defeated by the player's attack cannot attack back.
+                if (e.active && e.attackCooldown <= 0.0f) {
                     p.health -= e.damage;
                     p.damageFlashTimer = 0.25f;
                     e.attackCooldown = 1.1f;
@@ -487,7 +483,8 @@ void GameLogic::CheckCollisionsAndCombat(float deltaTime) {
 
         // If not blocked by enemy, advance automatically toward the right
         if (!blockedByEnemy && p.type != PLAYER_DEFENSE) {
-            p.x += p.speed * deltaTime;
+            p.x = std::min(p.x + p.speed * deltaTime,
+                           m_GridStartX + m_GridWidth - 30.0f);
             p.isAttacking = false;
         }
     }
