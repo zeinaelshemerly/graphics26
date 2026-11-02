@@ -22,14 +22,14 @@ void Playfield::Init()
     for (int i = 0; i < NUM_LANES; ++i)
         m_SelectedLanes[i] = false;
 
-    m_GameWorld.Init(m_GridStartX, m_GridStartY,
+    m_GameLogic.Init(m_GridStartX, m_GridStartY,
                      m_GridWidth,  m_GridHeight, m_LaneHeight);
 }
 
 void Playfield::Update(float deltaTime)
 {
     m_AnimTimer += deltaTime;
-    m_GameWorld.Update(deltaTime);
+    m_GameLogic.Update(deltaTime, m_SelectedLanes);
 }
 
 float Playfield::GetLaneY(int lane) const
@@ -63,9 +63,15 @@ void Playfield::OnKey(int key, int action)
 {
     if (action != GLFW_PRESS) return;
 
+    if (key == GLFW_KEY_W || key == GLFW_KEY_UP) {
+        m_GameLogic.TriggerJumpForLanes(m_SelectedLanes);
+    } else if (key == GLFW_KEY_S || key == GLFW_KEY_DOWN) {
+        m_GameLogic.TriggerDuckForLanes(m_SelectedLanes);
+    }
+
     if (key == GLFW_KEY_R) {
         // Reset entire game world
-        m_GameWorld.Reset();
+        m_GameLogic.Reset();
         for (int i = 0; i < NUM_LANES; ++i) m_SelectedLanes[i] = false;
     }
 }
@@ -81,26 +87,26 @@ void Playfield::OnMouseClick(int button, int action)
     const float cardGap    =  16.0f;
     const float cardY      =   6.0f;
 
-    P2PlayerType cardTypes[3] = { P2_PLAYER_MELEE, P2_PLAYER_RANGED, P2_PLAYER_DEFENSE };
+    PlayerType cardTypes[3] = { PLAYER_MELEE, PLAYER_RANGED, PLAYER_DEFENSE };
 
     for (int i = 0; i < 3; ++i) {
         float cx = cardStartX + (float)i * (cardW + cardGap);
         if (m_MouseX >= cx && m_MouseX <= cx + cardW &&
             m_MouseY >= cardY && m_MouseY <= cardY + cardH)
         {
-            if (m_GameWorld.IsCharacterUnlocked(cardTypes[i]))
-                m_GameWorld.SelectCard(cardTypes[i]);
+            if (m_GameLogic.IsCardUnlocked(cardTypes[i]))
+                m_GameLogic.SelectCard(cardTypes[i]);
             return;
         }
     }
 
     // 2. Click collectibles (try to collect dropped coins)
-    m_GameWorld.TryCollectAt(m_MouseX, m_MouseY);
+    m_GameLogic.OnClickAt(m_MouseX, m_MouseY);
 
     // 3. Click lane — deploy selected card OR toggle lane selection
     if (m_HoveredLane >= 0 && m_HoveredLane < NUM_LANES) {
-        if (m_GameWorld.GetSelectedCard() != P2_PLAYER_NONE) {
-            m_GameWorld.PurchaseAndDeploy(m_GameWorld.GetSelectedCard(), m_HoveredLane);
+        if (m_GameLogic.GetSelectedCard() != PLAYER_NONE) {
+            m_GameLogic.TryDeployPlayer(m_HoveredLane);
         } else {
             m_SelectedLanes[m_HoveredLane] = !m_SelectedLanes[m_HoveredLane];
         }
@@ -126,7 +132,7 @@ void Playfield::Render(Renderer2D& renderer)
     RenderLaneHighlights(renderer);
 
     // Person 2: enemies, players (simple shapes), collectibles, banners
-    m_GameWorld.RenderEntities(renderer);
+    m_GameLogic.Render(renderer);
 
     // Person 2: HUD top bar + bottom level-progress bar
     RenderTopAndBottomUI(renderer);
@@ -435,16 +441,16 @@ void Playfield::RenderTopAndBottomUI(Renderer2D& renderer)
     glm::vec4 statColor(0.38f, 0.88f, 0.48f, 1.0f);
 
     // Stats (top-left, arcade-green terminal text)
-    renderer.DrawText("SCORE: " + std::to_string(m_GameWorld.GetScore()),
+    renderer.DrawText("SCORE: " + std::to_string(m_GameLogic.GetScore()),
                       20.0f, 12.0f, 2.0f, statColor, 2.0f);
-    renderer.DrawText("WAVE " + std::to_string(m_GameWorld.GetCurrentWave()) + "/3",
+    renderer.DrawText("WAVE " + std::to_string(m_GameLogic.GetCurrentWave()) + "/3",
                       20.0f, 32.0f, 2.0f, statColor, 2.0f);
-    renderer.DrawText("SPICE: " + std::to_string(m_GameWorld.GetSpiceCoins()),
+    renderer.DrawText("SPICE: " + std::to_string(m_GameLogic.GetSpice()),
                       20.0f, 52.0f, 2.0f, statColor, 2.0f);
 
     // Mini spice-coin icon
     float spiceIconX = 20.0f
-        + renderer.GetTextWidth("SPICE: " + std::to_string(m_GameWorld.GetSpiceCoins()), 2.0f)
+        + renderer.GetTextWidth("SPICE: " + std::to_string(m_GameLogic.GetSpice()), 2.0f)
         + 12.0f;
     renderer.DrawCircle(glm::vec2(spiceIconX, 58.0f), 7.0f,
                         glm::vec4(0.95f, 0.80f, 0.20f, 1.0f), 12);
@@ -455,11 +461,11 @@ void Playfield::RenderTopAndBottomUI(Renderer2D& renderer)
     renderer.DrawText("CARDS", 300.0f, 28.0f, 2.2f, statColor, 2.0f);
 
     // --- 3 Character cards ---
-    struct CardDef { P2PlayerType type; const char* name; int cost; };
+    struct CardDef { PlayerType type; const char* name; int cost; };
     CardDef cards[3] = {
-        { P2_PLAYER_MELEE,   "CHEF",  10 },
-        { P2_PLAYER_RANGED,  "SALT",  20 },
-        { P2_PLAYER_DEFENSE, "BREAD", 30 }
+        { PLAYER_MELEE,   "CHEF",  10 },
+        { PLAYER_RANGED,  "SALT",  20 },
+        { PLAYER_DEFENSE, "BREAD", 30 }
     };
 
     const float cardStartX = 400.0f;
@@ -470,8 +476,8 @@ void Playfield::RenderTopAndBottomUI(Renderer2D& renderer)
 
     for (int i = 0; i < 3; ++i) {
         float cx = cardStartX + (float)i * (cardW + cardGap);
-        bool unlocked  = m_GameWorld.IsCharacterUnlocked(cards[i].type);
-        bool isSelected = (m_GameWorld.GetSelectedCard() == cards[i].type);
+        bool unlocked  = m_GameLogic.IsCardUnlocked(cards[i].type);
+        bool isSelected = (m_GameLogic.GetSelectedCard() == cards[i].type);
 
         if (unlocked) {
             // Vibrant unlocked card
@@ -491,12 +497,12 @@ void Playfield::RenderTopAndBottomUI(Renderer2D& renderer)
                               1.3f, glm::vec4(0.95f,0.95f,0.98f,1.0f), 1.3f);
 
             // Card icon
-            if (cards[i].type == P2_PLAYER_MELEE) {
+            if (cards[i].type == PLAYER_MELEE) {
                 renderer.DrawQuad(cx + cardW*0.5f - 12.0f, cardY + 28.0f, 10.0f, 3.0f,
                                   glm::vec4(0.20f,0.20f,0.22f,1.0f));
                 renderer.DrawQuad(cx + cardW*0.5f - 2.0f,  cardY + 22.0f, 10.0f, 15.0f,
                                   glm::vec4(0.85f,0.88f,0.90f,1.0f));
-            } else if (cards[i].type == P2_PLAYER_RANGED) {
+            } else if (cards[i].type == PLAYER_RANGED) {
                 renderer.DrawQuad(cx + cardW*0.5f - 8.0f, cardY + 23.0f, 12.0f, 12.0f,
                                   glm::vec4(0.78f,0.80f,0.84f,1.0f));
                 renderer.DrawQuad(cx + cardW*0.5f + 4.0f, cardY + 24.5f, 4.0f, 9.0f,
@@ -552,7 +558,7 @@ void Playfield::RenderTopAndBottomUI(Renderer2D& renderer)
     renderer.DrawRectOutline(progX, progY, progW, progH, 2.5f,
                              glm::vec4(0.10f, 0.11f, 0.12f, 1.0f));
 
-    float progress = m_GameWorld.GetLevelProgress();
+    float progress = m_GameLogic.GetLevelProgress();
     float fillW    = (progW - 6.0f) * progress;
     renderer.DrawQuad(progX + 3.0f, progY + 3.0f, fillW, progH - 6.0f,
                       glm::vec4(0.35f, 0.85f, 0.45f, 1.0f));
