@@ -668,6 +668,14 @@ void GameLogic::DrawPlayer(Renderer2D& renderer, const PlayerCharacter& player) 
         renderer.DrawCircle(glm::vec2(drawX + 11.5f, drawY), 1.3f, outlineColor);
         renderer.DrawCircle(glm::vec2(drawX + 11.5f, drawY + 4.0f), 1.3f, outlineColor);
 
+        // Short salt burst when a projectile has just been launched.
+        if (player.attackCooldown > 1.40f) {
+            renderer.DrawCircle(glm::vec2(drawX + 23.0f, drawY - 4.0f), 2.5f,
+                                glm::vec4(0.98f, 0.98f, 1.0f, 1.0f), 8);
+            renderer.DrawCircle(glm::vec2(drawX + 27.0f, drawY + 5.0f), 1.8f,
+                                glm::vec4(0.95f, 0.88f, 0.55f, 1.0f), 8);
+        }
+
         // Clean pepper/salt dots inside body
         renderer.DrawCircle(glm::vec2(drawX - 8.0f, drawY - 3.0f), 1.2f, outlineColor);
         renderer.DrawCircle(glm::vec2(drawX - 3.0f, drawY + 4.0f), 1.2f, outlineColor);
@@ -687,6 +695,11 @@ void GameLogic::DrawPlayer(Renderer2D& renderer, const PlayerCharacter& player) 
         renderer.DrawQuad(drawX - 11.0f, drawY - 6.0f, 22.0f, 20.0f, crumbColor);
         renderer.DrawCircle(glm::vec2(drawX - 6.0f, drawY - 6.0f), 6.0f, crumbColor);
         renderer.DrawCircle(glm::vec2(drawX + 6.0f, drawY - 6.0f), 6.0f, crumbColor);
+
+        // A subtle shield ring makes the bread's defensive role visible.
+        float shieldPulse = 0.5f + 0.5f * std::sin(player.animTimer * 4.0f);
+        renderer.DrawCircle(glm::vec2(drawX, drawY), 23.0f,
+                            glm::vec4(0.96f, 0.72f, 0.28f, 0.12f + 0.10f * shieldPulse), 24);
 
         // Clean outline
         renderer.DrawRectOutline(drawX - 14.0f, drawY - 8.0f, 28.0f, 24.0f, 2.0f, outlineColor);
