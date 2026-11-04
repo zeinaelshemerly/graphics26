@@ -29,6 +29,10 @@ public:
     void OnClickAt(float x, float y);
 
     // Queries
+    // Read-only gameplay data for UI / environment integration.
+    const std::vector<PlayerCharacter>& GetPlayers() const { return m_Players; }
+    const std::vector<EnemyCharacter>& GetEnemies() const { return m_Enemies; }
+    const std::vector<Projectile>& GetProjectiles() const { return m_Projectiles; }
     int GetScore() const { return m_Score; }
     int GetSpice() const { return m_SpiceCoins; }
     int GetCurrentWave() const { return m_CurrentWave; }
