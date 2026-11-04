@@ -94,8 +94,16 @@ void Playfield::OnMouseClick(int button, int action)
         if (m_MouseX >= cx && m_MouseX <= cx + cardW &&
             m_MouseY >= cardY && m_MouseY <= cardY + cardH)
         {
-            if (m_GameLogic.IsCardUnlocked(cardTypes[i]))
-                m_GameLogic.SelectCard(cardTypes[i]);
+            if (m_GameLogic.IsCardUnlocked(cardTypes[i])) {
+                // One card purchase deploys that character on each selected lane
+                // only if enough SPICE is available for that purchase.
+                for (int lane = 0; lane < NUM_LANES; ++lane) {
+                    if (!m_SelectedLanes[lane]) continue;
+                    m_GameLogic.SelectCard(cardTypes[i]);
+                    if (m_GameLogic.GetSelectedCard() == cardTypes[i])
+                        m_GameLogic.TryDeployPlayer(lane);
+                }
+            }
             return;
         }
     }
@@ -103,13 +111,10 @@ void Playfield::OnMouseClick(int button, int action)
     // 2. Click collectibles (try to collect dropped coins)
     m_GameLogic.OnClickAt(m_MouseX, m_MouseY);
 
-    // 3. Click lane — deploy selected card OR toggle lane selection
+    // 3. First select lane(s), then choose a character card to deploy.
+    // This also allows W/S to control every selected lane at once.
     if (m_HoveredLane >= 0 && m_HoveredLane < NUM_LANES) {
-        if (m_GameLogic.GetSelectedCard() != PLAYER_NONE) {
-            m_GameLogic.TryDeployPlayer(m_HoveredLane);
-        } else {
-            m_SelectedLanes[m_HoveredLane] = !m_SelectedLanes[m_HoveredLane];
-        }
+        m_SelectedLanes[m_HoveredLane] = !m_SelectedLanes[m_HoveredLane];
     }
 }
 
@@ -544,7 +549,7 @@ void Playfield::RenderTopAndBottomUI(Renderer2D& renderer)
     }
 
     // Controls hint
-    renderer.DrawText("SELECT CARD -> CLICK LANE TO DEPLOY",
+    renderer.DrawText("SELECT LANE -> CLICK CARD TO DEPLOY",
                       750.0f, 20.0f, 1.3f, glm::vec4(0.95f,0.85f,0.35f,1.0f), 1.4f);
     renderer.DrawText("R: RESTART GAME",
                       750.0f, 42.0f, 1.3f, glm::vec4(0.75f,0.80f,0.85f,1.0f), 1.3f);
