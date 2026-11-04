@@ -283,31 +283,20 @@ void GameLogic::UpdatePlayers(float deltaTime) {
             }
         }
 
-        // Ranged player shooting logic
+        // Ranged players shoot automatically even if the lane is empty.
+        // Shots disappear at the grid boundary if no enemy is hit.
         if (p.type == PLAYER_RANGED && p.attackCooldown <= 0.0f) {
-            // Check if there is an enemy ahead in the same lane
-            bool enemyAhead = false;
-            for (const auto& e : m_Enemies) {
-                if (e.active && e.lane == p.lane && e.x > p.x) {
-                    enemyAhead = true;
-                    break;
-                }
-            }
-
-            if (enemyAhead) {
-                Projectile proj;
-                proj.x = p.x + 25.0f;
-                proj.y = p.y;
-                proj.vx = 280.0f;
-                proj.lane = p.lane;
-                proj.isFromPlayer = true;
-                proj.damage = 1;
-                proj.heightType = ATTACK_NORMAL;
-                proj.active = true;
-                m_Projectiles.push_back(proj);
-
-                p.attackCooldown = 1.6f;
-            }
+            Projectile proj;
+            proj.x = p.x + 25.0f;
+            proj.y = p.y;
+            proj.vx = 280.0f;
+            proj.lane = p.lane;
+            proj.isFromPlayer = true;
+            proj.damage = 1;
+            proj.heightType = ATTACK_NORMAL;
+            proj.active = true;
+            m_Projectiles.push_back(proj);
+            p.attackCooldown = 1.6f;
         }
     }
 }
