@@ -5,9 +5,9 @@
 #include <iostream>
 
 #include "Renderer2D.h"
-#include "Playfield.h"
+#include "GameUI.h"
 
-static Playfield* g_Playfield = nullptr;
+static GameUI* g_Playfield = nullptr;
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -20,13 +20,16 @@ static void cursor_position_callback(GLFWwindow* window, double xpos, double ypo
     if (winW > 0 && winH > 0) {
         float virtualX = (float)xpos * (1280.0f / (float)winW);
         float virtualY = (float)ypos * (720.0f / (float)winH);
-        g_Playfield->UpdateMouse(virtualX, virtualY);
+        g_Playfield->Mouse(virtualX, virtualY);
     }
 }
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
     if (!g_Playfield) return;
-    g_Playfield->OnMouseClick(button, action);
+    double x, y;
+    glfwGetCursorPos(window, &x, &y);
+    cursor_position_callback(window, x, y);
+    g_Playfield->Click(button, action);
 }
 
 int main() {
@@ -39,7 +42,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "DMET 502 - Kitchen Defense | Person 2: Game World & Progression", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1280, 720, "Kitchen Defense", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create GLFW window\n";
         glfwTerminate();
@@ -55,17 +58,18 @@ int main() {
         return -1;
     }
 
-    glViewport(0, 0, 1280, 720);
+    int framebufferWidth, framebufferHeight;
+    glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+    glViewport(0, 0, framebufferWidth, framebufferHeight);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
-    glfwSetKeyCallback(window, [](GLFWwindow* w, int key, int scancode, int action, int mods) {
-        if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-            glfwSetWindowShouldClose(w, GLFW_TRUE);
-        // R = Restart game world (Person 2)
-        if (g_Playfield)
-            g_Playfield->OnKey(key, action);
+    glfwSetKeyCallback(window, [](GLFWwindow*, int key, int, int action, int) {
+        if (g_Playfield) g_Playfield->Key(key, action);
+    });
+    glfwSetWindowFocusCallback(window, [](GLFWwindow*, int focused) {
+        if (!focused && g_Playfield) g_Playfield->FocusLost();
     });
 
     // Enable V-Sync to cap to 60 FPS
@@ -82,31 +86,28 @@ int main() {
     Renderer2D renderer;
     renderer.Init();
 
-    Playfield playfield;
+    GameUI playfield;
     playfield.Init();
     g_Playfield = &playfield;
 
-    std::cout << "================================================\n";
-    std::cout << " DMET 502 — Kitchen Defense                   \n";
-    std::cout << " Person 2: Game World & Progression           \n";
-    std::cout << "================================================\n";
-    std::cout << "[INFO] Window opened (1280x720)\n";
-    std::cout << "[INFO] Select a card in the top bar\n";
-    std::cout << "[INFO] Click a lane to deploy a character\n";
-    std::cout << "[INFO] Click dropped coins to collect them\n";
-    std::cout << "[INFO] Press R to restart | ESC to exit\n";
-    std::cout << "================================================\n" << std::flush;
+    std::cout << "Kitchen Defense: Select lanes, then click a card. W: jump, S: duck, ESC: pause.\n";
 
     double lastTime = glfwGetTime();
 
     // Main Game Loop
     while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
         double currentTime = glfwGetTime();
         float deltaTime = (float)(currentTime - lastTime);
         lastTime = currentTime;
 
         // Update playfield animations and logic
+        // Refresh coordinates even when a resize occurs without mouse movement.
+        double mouseX, mouseY;
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+        cursor_position_callback(window, mouseX, mouseY);
         playfield.Update(deltaTime);
+        if (playfield.ShouldQuit()) glfwSetWindowShouldClose(window, GLFW_TRUE);
 
         // Clear screen
         glClearColor(0.12f, 0.12f, 0.14f, 1.0f);
@@ -118,7 +119,6 @@ int main() {
         renderer.End();
 
         glfwSwapBuffers(window);
-        glfwPollEvents();
     }
 
     g_Playfield = nullptr;

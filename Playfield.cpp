@@ -483,11 +483,13 @@ void Playfield::RenderTopAndBottomUI(Renderer2D& renderer)
         float cx = cardStartX + (float)i * (cardW + cardGap);
         bool unlocked  = m_GameLogic.IsCardUnlocked(cards[i].type);
         bool isSelected = (m_GameLogic.GetSelectedCard() == cards[i].type);
+        bool hovered = unlocked && m_MouseX >= cx && m_MouseX <= cx + cardW &&
+                       m_MouseY >= cardY && m_MouseY <= cardY + cardH;
 
         if (unlocked) {
             // Vibrant unlocked card
             renderer.DrawQuad(cx, cardY, cardW, cardH,
-                              glm::vec4(0.32f, 0.34f, 0.38f, 1.0f));
+                              hovered ? glm::vec4(0.43f, 0.48f, 0.40f, 1.0f) : glm::vec4(0.32f, 0.34f, 0.38f, 1.0f));
             if (isSelected) {
                 float p2 = 0.5f + 0.5f * std::sin(m_AnimTimer * 6.0f);
                 renderer.DrawRectOutline(cx - 2.0f, cardY - 2.0f,
@@ -551,7 +553,7 @@ void Playfield::RenderTopAndBottomUI(Renderer2D& renderer)
     // Controls hint
     renderer.DrawText("SELECT LANE -> CLICK CARD TO DEPLOY",
                       750.0f, 20.0f, 1.3f, glm::vec4(0.95f,0.85f,0.35f,1.0f), 1.4f);
-    renderer.DrawText("R: RESTART GAME",
+    renderer.DrawText("ESC: PAUSE | R: RESTART",
                       750.0f, 42.0f, 1.3f, glm::vec4(0.75f,0.80f,0.85f,1.0f), 1.3f);
 
     // --- Bottom level-progress bar ---

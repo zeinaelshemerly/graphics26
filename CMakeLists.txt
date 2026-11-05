@@ -12,6 +12,7 @@ find_package(OpenGL REQUIRED)
 
 add_executable(OpenGLStarter
     main.cpp
+    GameUI.cpp
     Renderer2D.cpp
     Playfield.cpp
     GameLogic.cpp
@@ -19,3 +20,12 @@ add_executable(OpenGLStarter
 
 target_include_directories(OpenGLStarter PRIVATE external/glad/include)
 target_link_libraries(OpenGLStarter PRIVATE glfw OpenGL::GL glm::glm)
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(GameUIFlowTests
+        tests/GameUIFlow.cpp GameUI.cpp Playfield.cpp GameLogic.cpp Renderer2D.cpp
+    )
+    target_include_directories(GameUIFlowTests PRIVATE . external/glad/include)
+    target_link_libraries(GameUIFlowTests PRIVATE glfw OpenGL::GL glm::glm)
+    add_test(NAME GameUIFlow COMMAND GameUIFlowTests)
+endif()
