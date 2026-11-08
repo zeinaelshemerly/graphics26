@@ -14,6 +14,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build g++ libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+      - name: Package source files for submission
+        uses: actions/upload-artifact@v4
+        with:
+          name: KitchenDefense-TeamMember
+          path: |
+            *.cpp
+            *.h
+            CMakeLists.txt
+            README.md
+            tests/*.cpp
+            tests/*.h
+          if-no-files-found: error
+          retention-days: 30
       - name: Configure
         run: cmake -S . -B build/ci -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGLFW_BUILD_WAYLAND=OFF -DGLFW_BUILD_X11=ON -DBUILD_TESTING=ON
       - name: Compile game and tests
